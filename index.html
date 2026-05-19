@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>高中英文單字系統 Pro 5</title>
+<style>
+:root{--bg:#f5f5f3;--card:#fff;--text:#222;--muted:#666;--line:#ddd;--dark:#111;--soft:#f0f0f0;--good:#07803f;--bad:#c00}
+*{box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC",sans-serif;background:var(--bg);margin:0;color:var(--text)}
+header{padding:28px 20px 10px;text-align:center}
+h1{margin:0;font-size:30px}
+p{color:var(--muted)}
+main{max-width:1080px;margin:auto;padding:15px}
+.card{background:var(--card);border-radius:22px;padding:20px;margin-bottom:16px;box-shadow:0 8px 20px rgba(0,0,0,.05)}
+textarea,input,button,select{font:inherit}
+textarea,input,select{width:100%;padding:12px;border-radius:14px;border:1px solid var(--line);background:#fff}
+textarea{min-height:160px}
+button{padding:10px 14px;border:none;border-radius:12px;cursor:pointer;background:var(--dark);color:#fff;margin-top:10px}
+.secondary{background:#e5e7eb;color:#111}
+.danger,.delete-btn{background:#fee2e2;color:#991b1b}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.word{padding:14px;border:1px solid #eee;border-radius:14px;margin-top:10px;background:#fff}
+.word strong{font-size:20px}
+.small{font-size:13px;color:var(--muted)}
+.quiz{font-size:28px;font-weight:700;margin:18px 0}
+.option{display:block;width:100%;text-align:left;margin-top:8px;background:#fff;color:#111;border:1px solid #ddd}
+.correct{color:var(--good);font-weight:700}
+.wrong{color:var(--bad);font-weight:700}
+.tag{display:inline-block;padding:4px 10px;background:var(--soft);border-radius:999px;font-size:13px;margin:4px 4px 0 0}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.toolbar button{margin-top:0}
+.group-title{display:flex;justify-content:space-between;align-items:center;padding:12px;background:#f8f8f8;border-radius:14px;margin-top:14px;cursor:pointer;font-weight:700}
+.group-content{display:none}
+.group-content.show{display:block}
+.word-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.delete-btn{padding:8px 10px;font-size:13px}
+details summary{cursor:pointer;font-size:20px;font-weight:700}
+@media(max-width:700px){.grid{grid-template-columns:1fr}h1{font-size:24px}}
+</style>
+</head>
+<body>
+
+<header>
+<h1>高中英文單字系統 Pro 5</h1>
+<p>英翻中｜中翻英｜克漏字選擇題｜拼字｜分類複習｜刪除｜收折｜考卷</p>
+</header>
+
+<main>
+
+<div class="card">
+<h2>批次匯入</h2>
+<div class="grid">
+<div>
+<label class="small">小標題 / 單元</label>
+<input id="importGroup" placeholder="例如：U20">
+</div>
+<div>
+<label class="small">匯入後</label>
+<select id="afterImport">
+<option value="clear">清空匯入框</option>
+<option value="keep">保留內容</option>
+</select>
+</div>
+</div>
+<p class="small">格式：單字｜詞性｜中文｜例句。支援 ｜、|、tab、Excel 貼上。</p>
+<textarea id="bulk"></textarea>
+<div class="toolbar">
+<button onclick="importWords()">匯入</button>
+<button class="secondary" onclick="loadDemo()">示範</button>
+<button class="danger" onclick="clearWords()">清空全部單字庫</button>
+</div>
+<div id="importResult"></div>
+</div>
+
+<div class="card">
+<h2>複習範圍</h2>
+<div class="grid">
+<div>
+<label class="small">選擇單元</label>
+<select id="groupFilter" onchange="refreshAll()"></select>
+</div>
+<div>
+<label class="small">搜尋</label>
+<input id="search" placeholder="搜尋英文、中文、詞性或例句" oninput="renderWords()">
+</div>
+</div>
+<p class="small">下面所有練習都會依照這裡選的單元出題。</p>
+</div>
+
+<div class="card">
+<details open>
+<summary>單字庫 <span id="count" class="tag"></span></summary>
+<div id="wordList"></div>
+</details>
+</div>
+
+<div class="card">
+<h2>選擇題</h2>
+<div class="grid">
+<div>
+<label class="small">題目方向</label>
+<select id="choiceMode" onchange="newChoice()">
+<option value="en-to-zh">看英文，選中文</option>
+<option value="zh-to-en">看中文，選英文</option>
+<option value="sentence-to-word">看例句，選單字（克漏字選擇題）</option>
+</select>
+</div>
+<div>
+<label class="small">選項數量</label>
+<select id="choiceCount" onchange="newChoice()">
+<option value="4">4 個選項</option>
+<option value="3">3 個選項</option>
+</select>
+</div>
+</div>
+<div id="choiceBox"></div>
+<button onclick="newChoice()">下一題</button>
+</div>
+
+<div class="card">
+<h2>克漏字填空</h2>
+<div id="clozeBox"></div>
+<button onclick="newCloze()">下一題</button>
+</div>
+
+<div class="card">
+<h2>拼字測驗</h2>
+<p class="small">看中文解釋，輸入英文單字。</p>
+<div id="spellBox"></div>
+<button onclick="newSpell()">下一題</button>
+</div>
+
+<div class="card">
+<h2>考卷</h2>
+<p class="small">會依照目前選擇的複習範圍產生考卷。</p>
+<div class="grid">
+<div>
+<label class="small">題數</label>
+<select id="paperCount">
+<option value="10">10題</option>
+<option value="20">20題</option>
+<option value="30">30題</option>
+<option value="999">全部</option>
+</select>
+</div>
+<div>
+<label class="small">類型</label>
+<select id="paperType">
+<option value="spell">中翻英</option>
+<option value="cloze">克漏字</option>
+<option value="mixed">混合</option>
+</select>
+</div>
+</div>
+<div class="toolbar">
+<button onclick="makePaper()">產生考卷</button>
+<button class="secondary" onclick="downloadPaper()">下載 TXT</button>
+<button class="secondary" onclick="printPaper()">列印 / 存成 PDF</button>
+</div>
+<textarea id="paper" placeholder="考卷會出現在這裡"></textarea>
+</div>
+
+<div class="card">
+<h2>錯題本</h2>
+<div id="wrongBox"></div>
+<button onclick="clearWrong()">清空錯題</button>
+</div>
+
+</main>
+
+<script>
+const WORD_KEY="words_pro5";
+const WRONG_KEY="wrongs_pro5";
+
+let words = JSON.parse(localStorage.getItem(WORD_KEY) || localStorage.getItem("words_pro4") || localStorage.getItem("words_pro3") || localStorage.getItem("words_pro2") || localStorage.getItem("words_pro") || "[]");
+let wrongs = JSON.parse(localStorage.getItem(WRONG_KEY) || localStorage.getItem("wrongs_pro3") || localStorage.getItem("wrongs_pro2") || localStorage.getItem("wrongs_pro") || "[]");
+
+words = words.map(w => ({
+id:w.id || Date.now()+Math.random(),
+group:w.group || "未分類",
+word:w.word || "",
+pos:w.pos || "",
+meaning:w.meaning || "",
+sentence:w.sentence || ""
+}));
+
+save(false);
+refreshAll();
+
+function save(render=true){
+localStorage.setItem(WORD_KEY,JSON.stringify(words));
+localStorage.setItem(WRONG_KEY,JSON.stringify(wrongs));
+if(render){renderGroups();renderWords();renderWrongs();}
+}
+
+function normalizeLine(line){
+line=line.trim();
+if(!line) return null;
+line=line.replace(/\t/g,"｜").replace(/\|/g,"｜");
+let parts=line.split("｜").map(x=>x.trim());
+if(parts.length<2) return null;
+return {word:parts[0]||"",pos:parts[1]||"",meaning:parts[2]||"",sentence:parts.slice(3).join("｜")||""};
+}
+
+function importWords(){
+let group=(document.getElementById("importGroup").value||"未分類").trim() || "未分類";
+let text=document.getElementById("bulk").value;
+let count=0, skipped=0;
+text.split(/\r?\n/).forEach(line=>{
+let obj=normalizeLine(line);
+if(obj && obj.word){
+obj.group=group;
+obj.id=Date.now()+Math.random();
+words.push(obj);
+count++;
+}else if(line.trim()){
+skipped++;
+}
+});
+save();
+document.getElementById("importResult").innerHTML=`<p class="correct">成功匯入 ${count} 筆到「${escapeHtml(group)}」；略過 ${skipped} 行。</p>`;
+if(document.getElementById("afterImport").value==="clear") document.getElementById("bulk").value="";
+renderGroups();
+document.getElementById("groupFilter").value=group;
+refreshAll();
+}
+
+function clearWords(){
+if(confirm("確定清空全部單字？")){
+words=[];
+["words_pro","words_pro2","words_pro3","words_pro4","words_pro5"].forEach(k=>localStorage.removeItem(k));
+save();
+refreshAll();
+}
+}
+
+function deleteWord(id){
+if(confirm("刪除這個單字？")){
+words=words.filter(w=>String(w.id)!==String(id));
+save();
+refreshAll();
+}
+}
+
+function renderGroups(){
+let sel=document.getElementById("groupFilter");
+let current=sel.value||"全部";
+let groups=[...new Set(words.map(w=>w.group||"未分類"))].sort();
+sel.innerHTML='<option value="全部">全部</option>'+groups.map(g=>`<option value="${escapeAttr(g)}">${escapeHtml(g)}</option>`).join("");
+sel.value=(groups.includes(current)||current==="全部")?current:"全部";
+}
+
+function getCurrentGroup(){
+return document.getElementById("groupFilter")?.value || "全部";
+}
+
+function getActiveWords(){
+let group=getCurrentGroup();
+return group==="全部" ? words : words.filter(w=>w.group===group);
+}
+
+function renderWords(){
+let box=document.getElementById("wordList");
+let q=(document.getElementById("search")?.value||"").toLowerCase();
+let list=getActiveWords().filter(w=>[w.word,w.meaning,w.pos,w.sentence,w.group].join(" ").toLowerCase().includes(q));
+document.getElementById("count").textContent=list.length+" / "+words.length+" 筆";
+if(list.length===0){box.innerHTML="<p class='small'>沒有單字。</p>";return;}
+let groups={};
+list.forEach(w=>{if(!groups[w.group]) groups[w.group]=[]; groups[w.group].push(w);});
+box.innerHTML=Object.entries(groups).map(([group,items],i)=>`
+<div class="group-title" onclick="toggleGroup('g${i}')">
+<div>${escapeHtml(group)} <span class="tag">${items.length}筆</span></div><div>▼</div>
+</div>
+<div class="group-content show" id="g${i}">
+${items.map(w=>`
+<div class="word">
+<div class="word-top">
+<div>
+<strong>${escapeHtml(w.word)}</strong><span class="tag">${escapeHtml(w.pos)}</span>
+<div>${escapeHtml(w.meaning)}</div>
+<div class="small">${escapeHtml(w.sentence)}</div>
+</div>
+<button class="delete-btn" onclick="event.stopPropagation();deleteWord('${escapeJs(w.id)}')">刪除</button>
+</div>
+</div>`).join("")}
+</div>`).join("");
+}
+
+function toggleGroup(id){document.getElementById(id).classList.toggle("show")}
+
+function refreshAll(){
+renderGroups();
+renderWords();
+renderWrongs();
+newChoice();
+newCloze();
+newSpell();
+}
+
+function randomItem(arr){return arr[Math.floor(Math.random()*arr.length)]}
+function shuffle(arr){return [...arr].sort(()=>Math.random()-0.5)}
+
+function newChoice(){
+let box=document.getElementById("choiceBox");
+let list=getActiveWords();
+let need=parseInt(document.getElementById("choiceCount")?.value||"4",10);
+if(list.length<need){box.innerHTML=`<p>目前範圍單字數不足，至少需要 ${need} 個單字。</p>`;return;}
+let mode=document.getElementById("choiceMode")?.value||"en-to-zh";
+let answer=randomItem(list);
+let pool=shuffle(list.filter(w=>w.word!==answer.word)).slice(0,need-1);
+let options=shuffle([answer,...pool]);
+let question="", optionText=o=>"", correct="";
+if(mode==="en-to-zh"){
+question=answer.word; optionText=o=>o.meaning; correct=answer.meaning;
+}else if(mode==="zh-to-en"){
+question=answer.meaning; optionText=o=>o.word; correct=answer.word;
+}else{
+let usable=list.filter(w=>w.sentence && w.word);
+if(usable.length<need){box.innerHTML="<p>目前範圍有例句的單字不足。</p>";return;}
+answer=randomItem(usable);
+pool=shuffle(usable.filter(w=>w.word!==answer.word)).slice(0,need-1);
+options=shuffle([answer,...pool]);
+question=answer.sentence.replace(new RegExp(answer.word,"ig"),"______");
+optionText=o=>o.word; correct=answer.word;
+}
+box.innerHTML=`
+<div class="quiz">${escapeHtml(question)}</div>
+<div class="small">${escapeHtml(answer.group||"未分類")}　${mode==="sentence-to-word" ? escapeHtml(answer.meaning||"") : escapeHtml(answer.pos||"")}</div>
+${options.map(o=>`<button class="option" onclick="checkAnswer('${escapeJs(correct)}','${escapeJs(optionText(o))}','${escapeJs(answer.word)}','choiceResult')">${escapeHtml(optionText(o))}</button>`).join("")}
+<div id="choiceResult"></div>`;
+}
+
+function checkAnswer(correct,chosen,word,resultId){
+let box=document.getElementById(resultId);
+if(correct===chosen){
+box.innerHTML="<p class='correct'>答對了！</p>";
+}else{
+box.innerHTML="<p class='wrong'>答錯！答案："+escapeHtml(correct)+"</p>";
+wrongs.push({word:word,meaning:correct,group:getCurrentGroup(),time:new Date().toLocaleString()});
+save();
+}
+}
+
+function newCloze(){
+let box=document.getElementById("clozeBox");
+let usable=getActiveWords().filter(w=>w.sentence && w.word && w.sentence.toLowerCase().includes(w.word.toLowerCase()));
+if(usable.length===0){box.innerHTML="<p>目前範圍沒有可用例句。</p>";return;}
+let q=randomItem(usable);
+let sentence=q.sentence.replace(new RegExp(q.word,"ig"),"______");
+box.innerHTML=`
+<div style="font-size:22px;line-height:1.8">${escapeHtml(sentence)}</div>
+<p>${escapeHtml(q.meaning||"")} <span class="tag">${escapeHtml(q.group||"未分類")}</span></p>
+<input id="clozeInput" placeholder="輸入英文單字">
+<button onclick="checkInput('${escapeJs(q.word)}','${escapeJs(q.meaning)}','clozeInput','clozeResult')">送出</button>
+<div id="clozeResult"></div>`;
+}
+
+function newSpell(){
+let box=document.getElementById("spellBox");
+let list=getActiveWords();
+if(list.length===0){box.innerHTML="<p>目前範圍沒有單字。</p>";return;}
+let q=randomItem(list);
+box.innerHTML=`
+<div class="quiz">${escapeHtml(q.meaning||"")}</div>
+<div class="small">${escapeHtml(q.pos||"")} <span class="tag">${escapeHtml(q.group||"未分類")}</span></div>
+<input id="spellInput" placeholder="輸入英文單字">
+<button onclick="checkInput('${escapeJs(q.word)}','${escapeJs(q.meaning)}','spellInput','spellResult')">送出</button>
+<div id="spellResult"></div>`;
+}
+
+function checkInput(answer,meaning,inputId,resultId){
+let val=document.getElementById(inputId).value.trim();
+let box=document.getElementById(resultId);
+if(val.toLowerCase()===answer.toLowerCase()){
+box.innerHTML="<p class='correct'>答對了！</p>";
+}else{
+box.innerHTML="<p class='wrong'>答錯！答案："+escapeHtml(answer)+"</p>";
+wrongs.push({word:answer,meaning:meaning,group:getCurrentGroup(),time:new Date().toLocaleString()});
+save();
+}
+}
+
+function makePaper(){
+let type=document.getElementById("paperType").value;
+let count=parseInt(document.getElementById("paperCount").value);
+let list=shuffle(getActiveWords());
+if(count!==999) list=list.slice(0,count);
+let out=[];
+out.push("英文單字測驗");
+out.push("範圍："+getCurrentGroup());
+out.push("姓名：__________　日期：__________");
+out.push("");
+list.forEach((w,i)=>{
+if(type==="spell"){
+out.push((i+1)+". "+(w.meaning||"")+"：____________________");
+}else if(type==="cloze"){
+let s=w.sentence && w.word ? w.sentence.replace(new RegExp(w.word,"ig"),"________") : "________  "+(w.meaning||"");
+out.push((i+1)+". "+s+"　（"+(w.meaning||"")+"）");
+}else{
+if(i%2===0) out.push((i+1)+". "+(w.meaning||"")+"：____________________");
+else {
+let s=w.sentence && w.word ? w.sentence.replace(new RegExp(w.word,"ig"),"________") : "________  "+(w.meaning||"");
+out.push((i+1)+". "+s+"　（"+(w.meaning||"")+"）");
+}
+}
+});
+out.push("");
+out.push("答案：");
+list.forEach((w,i)=>out.push((i+1)+". "+w.word));
+document.getElementById("paper").value=out.join("\n");
+}
+
+function downloadPaper(){
+let text=document.getElementById("paper").value;
+if(!text){alert("請先產生考卷");return;}
+let blob=new Blob([text],{type:"text/plain;charset=utf-8"});
+let a=document.createElement("a");
+a.href=URL.createObjectURL(blob);
+a.download="英文考卷.txt";
+a.click();
+}
+
+function printPaper(){
+let text=document.getElementById("paper").value;
+if(!text){alert("請先產生考卷");return;}
+let win=window.open("","","width=800,height=900");
+win.document.write("<pre style='font-size:18px;line-height:1.8;font-family:-apple-system,BlinkMacSystemFont,Noto Sans TC,sans-serif;white-space:pre-wrap;'>"+escapeHtml(text)+"</pre>");
+win.document.close();
+win.print();
+}
+
+function renderWrongs(){
+let box=document.getElementById("wrongBox");
+if(wrongs.length===0){box.innerHTML="<p class='small'>目前沒有錯題。</p>";return;}
+box.innerHTML=wrongs.slice().reverse().map(w=>`
+<div class="word"><span class="tag">${escapeHtml(w.group||"")}</span><br><strong>${escapeHtml(w.word)}</strong><div>${escapeHtml(w.meaning)}</div><div class="small">${escapeHtml(w.time)}</div></div>`).join("");
+}
+
+function clearWrong(){
+wrongs=[];
+["wrongs_pro","wrongs_pro2","wrongs_pro3","wrongs_pro5"].forEach(k=>localStorage.removeItem(k));
+save();
+}
+
+function loadDemo(){
+document.getElementById("importGroup").value="U20";
+document.getElementById("bulk").value=`cube｜n./vt.｜立方體；切成小方塊｜The mouse ate three cubes of cheese today.
+cubic｜adj.｜立方體的；立方的｜We measure space in cubic meters.
+murmur｜n./vi./vt.｜低語聲；低聲說；私下抱怨｜John said "I like you" in a low murmur.
+biography｜n.｜傳記｜Dr. Wilson authorized Nick to write his biography.`;
+}
+
+function escapeHtml(str){return String(str||"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[s]))}
+function escapeAttr(str){return escapeHtml(str).replace(/`/g,"&#96;")}
+function escapeJs(str){return String(str||"").replace(/\\/g,"\\\\").replace(/'/g,"\\'").replace(/\n/g," ")}
+</script>
+</body>
+</html>
